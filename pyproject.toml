@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "arcgis-paper-mcp"
+version = "0.1.0"
+description = "Editable scientific study-area and watershed maps through ArcGIS Pro and MCP"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["mcp>=1.12,<2"]
+
+[project.scripts]
+arcgis-paper-mcp = "arcgis_paper_mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/arcgis_paper_mcp"]

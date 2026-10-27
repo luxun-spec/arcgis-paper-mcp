@@ -1,0 +1,17 @@
+{
+  "template": "watershed",
+  "title": "流域地形、水系分级与分区",
+  "language": "zh",
+  "font": "Microsoft YaHei",
+  "project": "D:/research/seed.aprx",
+  "boundary": "D:/research/data/watershed.shp",
+  "dem": "D:/research/data/dem_utm.tif",
+  "rivers": "D:/research/hydrology-new/rivers.shp",
+  "river_order_field": "grid_code",
+  "basins": "D:/research/hydrology-new/basins.shp",
+  "detail_crs": 32649,
+  "output_dir": "D:/research/map-output-watershed-new",
+  "dpi": 300,
+  "formats": ["PNG", "PDF"],
+  "source_notes": "请说明真实 DEM 来源、分辨率、汇水阈值、分区方法。"
+}
