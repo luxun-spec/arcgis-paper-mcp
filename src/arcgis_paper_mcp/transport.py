@@ -76,7 +76,7 @@ def call(operation: str, params: dict, timeout: float | None = None) -> dict:
     try:
         if python:
             worker = subprocess.Popen([python, '-m', 'arcgis_paper_mcp.backend', str(request), str(response)],
-                                      stdout=sys.stderr, stderr=sys.stderr)
+                                      stdin=subprocess.DEVNULL, stdout=sys.stderr, stderr=sys.stderr)
         deadline = time.monotonic()+timeout
         while time.monotonic() < deadline:
             if response.exists():

@@ -1,4 +1,7 @@
 import json
+import os
+import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -48,8 +51,42 @@ class ConfigTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 hydrology_config({'dem': 'dem.tif', 'output_dir': 'out', 'threshold_km2': value}, Path.cwd())
 
+    def test_non_metre_elevation_is_rejected_without_hillshade(self):
+        with self.assertRaisesRegex(ValueError,'dem_unit'):
+            self.config(dem='dem.tif',dem_unit='ft',hillshade=False)
+
 
 class QueueTests(unittest.TestCase):
+    def test_headless_worker_cannot_read_the_mcp_protocol_stdin(self):
+        # Simulate a native dependency reading stdin during startup. The outer
+        # process holds the protocol pipe open, as a real MCP host does.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            package = root/'stub'/'arcgis_paper_mcp'
+            package.mkdir(parents=True)
+            (package/'__init__.py').write_text('')
+            (package/'backend.py').write_text(
+                'import sys,json\nfrom pathlib import Path\n'
+                'job=json.loads(Path(sys.argv[1]).read_text())\n'
+                'assert sys.stdin.read() == ""\n'
+                'Path(sys.argv[2]).write_text(json.dumps({"ok":True,"result":{"isolated":True}}))\n')
+            script = ('import os,sys\nfrom arcgis_paper_mcp.transport import call\n'
+                      f'os.environ["PAPER_MCP_ARCGIS_PYTHON"]=sys.executable\n'
+                      f'os.environ["PAPER_MCP_QUEUE"]={str(root/"queue")!r}\n'
+                      f'os.environ["PYTHONPATH"]={str(root/"stub")!r}\n'
+                      'assert call("ping",{},3)["isolated"]\n')
+            with (root/'stderr.txt').open('w',encoding='utf-8') as errors:
+                proc = subprocess.Popen([sys.executable,'-c',script],stdin=subprocess.PIPE,
+                                        stdout=subprocess.DEVNULL,stderr=errors)
+                try:
+                    code = proc.wait(timeout=10)
+                    self.assertEqual(code,0,(root/'stderr.txt').read_text(errors='replace'))
+                finally:
+                    proc.stdin.close()
+                    if proc.poll() is None:
+                        proc.kill()
+                        proc.wait()
+
     def test_expired_request_does_not_execute(self):
         from arcgis_paper_mcp.transport import atomic_json, process_one
         with tempfile.TemporaryDirectory() as tmp:

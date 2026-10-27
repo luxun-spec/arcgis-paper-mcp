@@ -46,6 +46,84 @@ def threshold_cells(d, threshold_km2: float) -> int:
     return max(1, math.ceil(threshold_km2*1_000_000/metric_cell_area(d)))
 
 
+def claim_output(out: Path):
+    """Atomically reserve a new/empty output directory, even for concurrent clients."""
+    out.mkdir(parents=True,exist_ok=True)
+    if any(out.iterdir()):
+        raise FileExistsError(f'Output directory must be empty: {out}')
+    with (out/'.paper-mcp-output.json').open('x',encoding='utf-8') as stream:
+        json.dump({'created_utc':datetime.now(timezone.utc).isoformat()},stream)
+
+
+def ensure_statistics(api, path):
+    raster = api.Raster(path)
+    if raster.minimum is not None and raster.maximum is not None:
+        if math.isfinite(raster.minimum) and math.isfinite(raster.maximum):
+            return
+    api.management.CalculateStatistics(path)
+
+
+def configure_scale(bar,frame):
+    """CIM units are native unit dictionaries, not display-name strings."""
+    cim = bar.getDefinition('V3')
+    cim.units = {'uwkid':9036}
+    cim.unitLabel = 'km'
+    desired = frame.camera.scale*35/1_000_000
+    magnitude = 10**math.floor(math.log10(desired))
+    total = max(v for v in (1,2,5,10) if v*magnitude <= desired)*magnitude
+    cim.division = total/2
+    cim.divisions = 2
+    cim.divisionsBeforeZero = 0
+    cim.subdivisions = 0
+    cim.fittingStrategy = 'AdjustFrame'
+    cim.labelFrequency = 'Divisions'
+    cim.barHeight = 3
+    for symbol in (cim.labelSymbol,cim.unitLabelSymbol):
+        symbol.symbol.height = 7
+    cim.numberFormat.roundingValue = 0 if total >= 2 else 2
+    bar.setDefinition(cim)
+
+
+def fit_frame(frame,extent,padding=1):
+    frame.camera.setExtent(extent)
+    visible = frame.camera.getExtent()
+    factor = max(1,extent.width/visible.width,extent.height/visible.height)
+    frame.camera.scale *= factor*padding
+
+
+@contextlib.contextmanager
+def spatial_license(api):
+    if api.CheckExtension('Spatial') != 'Available':
+        raise RuntimeError('Spatial Analyst license is required for hydrology')
+    kind = str(api.GetInstallInfo().get('LicenseType','')).replace(' ','').replace('_','').lower()
+    concurrent = kind == 'concurrentuse' or os.environ.get('PAPER_MCP_CONCURRENT_USE') == '1'
+    if concurrent and api.CheckOutExtension('Spatial') != 'CheckedOut':
+        raise RuntimeError('Could not check out the Concurrent Use Spatial Analyst license')
+    try:
+        yield
+    finally:
+        if concurrent:
+            api.CheckInExtension('Spatial')
+
+
+def refine_grid(frame):
+    cim = frame.getDefinition('V3')
+    for grid in cim.grids:
+        for line in grid.gridLines:
+            if line.elementType == 'Line' and line.symbol:
+                for stroke in line.symbol.symbol.symbolLayers:
+                    stroke.width = .2
+                    stroke.color.values = [140,140,140,45]
+            if line.elementType == 'Label':
+                for tick in (line.fromTick,line.toTick):
+                    endpoint = getattr(tick,'gridEndpoint',None)
+                    if endpoint and endpoint.gridLabelTemplate:
+                        template = endpoint.gridLabelTemplate
+                        template.dynamicStringTemplate = template.dynamicStringTemplate.replace('showDirections="False"','showDirections="True"')
+                        template.symbol.symbol.height = 6
+    frame.setDefinition(cim)
+
+
 def _rect(api, x,y,w,h):
     return api.Polygon(api.Array([api.Point(x,y),api.Point(x+w,y),api.Point(x+w,y+h),api.Point(x,y+h),api.Point(x,y)]))
 
@@ -107,6 +185,7 @@ def _raster_colors(layer):
               [221,226,158,100],[239,225,182,100],[193,169,140,100]]
     for brk,color in zip(sym.colorizer.classBreaks,colors):
         brk.color = {'RGB':color}
+        brk.label = f'≤ {brk.upperBound:,.0f}'
     layer.symbology = sym
 
 
@@ -151,9 +230,10 @@ def _orthographic(api, lon,lat):
     sr = api.SpatialReference()
     sr.loadFromString('PROJCS["Paper_Orthographic",GEOGCS["GCS_WGS_1984",DATUM["D_WGS_1984",'
                       'SPHEROID["WGS_1984",6378137,298.257223563]],PRIMEM["Greenwich",0],'
-                      'UNIT["Degree",0.0174532925199433]],PROJECTION["Orthographic"],'
+                      'UNIT["Degree",0.0174532925199433]],PROJECTION["Orthographic_Auxiliary_Sphere"],'
                       f'PARAMETER["False_Easting",0],PARAMETER["False_Northing",0],'
-                      f'PARAMETER["Central_Meridian",{lon}],PARAMETER["Latitude_Of_Origin",{lat}],UNIT["Meter",1]]')
+                      f'PARAMETER["Longitude_Of_Center",{lon}],PARAMETER["Latitude_Of_Center",{lat}],'
+                      'PARAMETER["Auxiliary_Sphere_Type",0],UNIT["Meter",1]]')
     return sr
 
 
@@ -213,18 +293,18 @@ class Engine:
         if seed is None:
             raise ValueError('Headless rendering requires config.project pointing to an existing APRX; or start the Pro bridge')
         out = Path(cfg['output_dir'])
-        out.mkdir(parents=True,exist_ok=True)
+        claim_output(out)
         target = out/'study_area.aprx'
         seed.saveACopy(str(target))
         proj = a.mp.ArcGISProject(str(target))
-        # Only the new copy is cleared, never the source or CURRENT project.
-        for item in proj.listLayouts()+proj.listMaps():
-            proj.deleteItem(item)
+        # Retain seed items: deleting and recreating localized item URIs can
+        # corrupt Index node types in some Pro installations. New names are unique.
         try:
             proj.updateStyles(['ArcGIS 2D'])
         except Exception as exc:
             warnings.append(f'Could not load ArcGIS 2D styles: {exc}')
-        layout = proj.createLayout(297,210,'MILLIMETER','Paper - '+cfg['template'])
+        import uuid
+        layout = proj.createLayout(297,210,'MILLIMETER','Paper_'+cfg['template']+'_'+uuid.uuid4().hex[:6])
         zh = cfg['language'] == 'zh'
         label = lambda en,cn: cn if zh else en
 
@@ -249,7 +329,7 @@ class Engine:
             clip = str(out/'elevation.tif')
             with a.EnvManager(overwriteOutput=False):
                 a.management.Clip(cfg['dem'],'#',clip,cfg['boundary'],'#','ClippingGeometry','NO_MAINTAIN_EXTENT')
-            a.management.CalculateStatistics(clip)
+            ensure_statistics(a,clip)
             if cfg['hillshade']:
                 if cfg.get('dem_unit','m') != 'm':
                     raise ValueError('Relief currently requires DEM elevation in metres (dem_unit=m)')
@@ -283,6 +363,12 @@ class Engine:
         bounds = {'detail':boundary}
         if cfg['template'] == 'study_area':
             globe = newmap('Global locator',_orthographic(a,lon,lat))
+            # An editable circular ocean backplate makes the locator read as a globe.
+            disc = a.Polygon(a.Array([a.Point(6378137*math.cos(i*math.pi/180),
+                                              6378137*math.sin(i*math.pi/180)) for i in range(361)]),globe.spatialReference)
+            ocean_path = str(out/'globe_ocean.shp')
+            a.management.CopyFeatures([disc],ocean_path)
+            _vector(globe,ocean_path,label('Ocean backdrop','海洋背景'),color=[143,173,185,100],width=.35,fill=[202,224,234,100])
             national = newmap('National locator',national_sr)
             for m in (globe,national):
                 if cfg.get('world'):
@@ -315,26 +401,20 @@ class Engine:
             frame = layout.createMapFrame(_rect(a,x,y,w,h),m,key)
             frame.camera.heading = 0
             if key == 'globe':
-                frame.camera.setExtent(a.Extent(-6_500_000,-6_500_000,6_500_000,6_500_000))
-                try:
-                    cim = frame.getDefinition('V3')
-                    cim.graphicFrame.backgroundSymbol.symbol.symbolLayers[0].color.values = [207,228,235,100]
-                    frame.setDefinition(cim)
-                except Exception as exc:
-                    warnings.append(f'Globe background style unavailable: {exc}')
+                fit_frame(frame,a.Extent(-6_500_000,-6_500_000,6_500_000,6_500_000))
             elif key == 'national' and cfg.get('national_extent'):
-                e = a.Extent(*cfg['national_extent'],spatial_reference=a.SpatialReference(4326)).polygon.projectAs(m.spatialReference).extent
-                frame.camera.setExtent(e)
+                e = a.Extent(*cfg['national_extent'],spatial_reference=a.SpatialReference(4326)).polygon.densify('DISTANCE',1,.01).projectAs(m.spatialReference).extent
+                fit_frame(frame,e,1.06)
             else:
                 lyr = bounds.get(key) or bounds.get('locator_area')
-                frame.camera.setExtent(frame.getLayerExtent(lyr,False,True))
-                frame.camera.scale *= cfg['padding']
+                fit_frame(frame,frame.getLayerExtent(lyr,False,True),cfg['padding'])
             if cfg['graticule'] and key != 'globe':
                 try:
-                    grids = proj.listStyleItems('ArcGIS 2D','GRID','*Graticule*')
+                    grids = [s for s in proj.listStyleItems('ArcGIS 2D','GRID') if 'graticule' in s.name.lower() or '经纬' in s.name]
                     if not grids:
                         raise RuntimeError('No graticule style in ArcGIS 2D')
                     frame.addGrid(grids[0])
+                    refine_grid(frame)
                 except Exception as exc:
                     warnings.append(f'{key}: graticule unavailable: {exc}')
             elements[key] = frame
@@ -342,7 +422,7 @@ class Engine:
                         'national':label('(b) Regional context','(b) 区域位置'),
                         'detail':label('(c) Terrain and sampling network','(c) 地形与采样分布') if cfg['template']=='study_area' else label('(a) River network and terrain','(a) 分级水系与地形'),
                         'basins':label('(b) Basin subdivisions','(b) 流域分区')}
-            text(x,y+h+2.3,captions[key],9)
+            text(x,y+h+6,captions[key],9)
 
         main = elements['detail']
         x,y,w,h = rects['detail']
@@ -357,10 +437,7 @@ class Engine:
                     elem.elementHeight = 10
                 else:
                     elem.elementWidth = 42
-                    cim = elem.getDefinition('V3')
-                    cim.units = 'Kilometers'
-                    cim.unitLabel = 'km'
-                    elem.setDefinition(cim)
+                    configure_scale(elem,main)
             except Exception as exc:
                 warnings.append(f'{name} unavailable: {exc}')
         lx,ly,lw,lh = rects['legend']
@@ -372,13 +449,27 @@ class Engine:
             for item in list(legend.items):
                 if item.name == label('Shaded relief','地形阴影'):
                     legend.removeItem(item)
-                else:
-                    item.showHeading = False
-                    item.showLayerName = True
-                    item.showLabels = True
+            cim = legend.getDefinition('V3')
+            cim.titleSymbol.symbol.height = 9
+            cim.itemGap = 3
+            cim.classGap = 2
+            cim.layerNameGap = 2
+            for item in cim.items:
+                item.showHeading = False
+                item.showLayerName = item.name in (label('Rivers','河流'),label('Elevation (m)','高程（m）'))
+                item.showLabels = True
+                item.patchHeight = 7
+                item.patchWidth = 18
+                for attr in ('labelSymbol','layerNameSymbol','headingSymbol'):
+                    sym = getattr(item,attr,None)
+                    if sym and sym.symbol:
+                        sym.symbol.height = 7
+            legend.setDefinition(cim)
             # Keep a native editable legend within the reserved column.
             legend.elementWidth = lw
             legend.elementHeight = lh-8
+            if legend.isOverflowing:
+                warnings.append('Legend overflows reserved column; reduce categories or adjust APRX')
         except Exception as exc:
             warnings.append(f'Legend unavailable: {exc}')
         text(12,200,cfg['title'],16,'Figure title')
@@ -392,6 +483,10 @@ class Engine:
         if cfg['detail_crs'] == 3857:
             warnings.append('Web Mercator used: choose a suitable local projected CRS for publication and metric interpretation')
         proj.save()
+        reopened = a.mp.ArcGISProject(str(target))
+        if not any(item.name == layout.name for item in reopened.listLayouts()):
+            raise RuntimeError('Saved APRX does not reopen with the generated layout; check ArcGIS installation and source project')
+        del reopened
         exported = []
         for fmt in dict.fromkeys(cfg['formats']):
             file = out/f"{cfg['template']}.{fmt.lower()}"
@@ -416,9 +511,8 @@ class Engine:
         if a.CheckExtension('Spatial') != 'Available':
             raise RuntimeError('Spatial Analyst license is required for hydrology')
         out = Path(cfg['output_dir'])
-        out.mkdir(parents=True,exist_ok=True)
-        a.CheckOutExtension('Spatial')
-        try:
+        claim_output(out)
+        with spatial_license(a):
             with a.EnvManager(overwriteOutput=False,snapRaster=cfg['dem'],cellSize=cfg['dem'],
                               extent=cfg['dem'],outputCoordinateSystem=d.spatialReference):
                 filled = a.sa.Fill(cfg['dem'])
@@ -444,8 +538,6 @@ class Engine:
                           note='Basin partitions edge-draining basins, not pour-point subcatchments. Clip results to your study area as needed.')
             atomic_json(out/'hydrology_manifest.json',result)
             return result
-        finally:
-            a.CheckInExtension('Spatial')
 
 
 def dispatch(operation: str, params: dict, engine=None):

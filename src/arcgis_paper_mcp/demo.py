@@ -41,7 +41,9 @@ def create_demo(output_dir: str, project: str, world=None, country=None) -> dict
     dem = str(root/'dem.tif')
     a.NumPyArrayToRaster(z,a.Point(x0,y0),width/nx,height/ny).save(dem)
     a.management.DefineProjection(dem,sr)
-    a.management.CalculateStatistics(dem)
+    a.Raster(dem).setStatistics([{'min':float(z.min()),'max':float(z.max()),
+                                'mean':float(z.mean()),'standardDeviation':float(z.std()),
+                                'count':int(z.size)}])
     rivers = str(Path(gdb)/'rivers')
     a.management.CreateFeatureclass(gdb,'rivers','POLYLINE',spatial_reference=sr)
     a.management.AddField(rivers,'ORDER_NO','SHORT')

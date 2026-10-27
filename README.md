@@ -11,7 +11,11 @@
 
 支持 DEM 分层设色、地形阴影、边界、行政区、河流分级、采样点及标签；原生经纬网、指北针和动态比例尺；输出 **APRX、PNG、PDF、SVG 和来源/参数清单**。图层和布局可在 ArcGIS Pro 中继续编辑。
 
-> **v0.1 验证状态：** 见 [验证记录](docs/VALIDATION.md)。MCP 协议测试通过并不等于 ArcGIS 图形导出已通过。合成示例不能作为科研数据。
+> **v0.1 已在 ArcGIS Pro 3.6 实际导出两套模板，并验证独立 ArcGIS Python 的 MCP 连接和水文流程。** 详见 [验证记录](docs/VALIDATION.md)。Pro GUI 快照桥接模式尚待界面验收。合成示例不能作为科研数据。
+
+![ArcGIS 实际导出的三级定位模板，研究图层为合成数据](docs/previews/study_area.png)
+
+![ArcGIS 实际导出的流域模板，研究图层为合成数据](docs/previews/watershed.png)
 
 ## 环境
 
@@ -104,7 +108,7 @@ $env:PYTHONPATH = (Resolve-Path src).Path
   manifest.json        # 输入、CRS、参数、输出、警告
 ```
 
-APRX 对用户提供的矢量路径保留引用；移动工程时需一起移动或重新连接原始数据，APRX 不是自动打包的地图包。
+APRX 保留种子工程原有项目项，并添加唯一名称的论文布局；用户提供的矢量数据保留路径引用。移动工程时需一起移动或重新连接原始数据，APRX 不是自动打包的地图包。
 
 ## DEM 水系提取
 

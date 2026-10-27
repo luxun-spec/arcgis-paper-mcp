@@ -10,16 +10,16 @@ DEFAULTS = dict(template='study_area', title='Study area', subtitle='', source_n
                 dpi=300, detail_crs=3857, national_crs=3857, font='Arial',
                 language='en', formats=['PNG', 'PDF'], graticule=True,
                 river_order_field='', site_label_field='', padding=1.12,
-                hillshade=True, demo=False)
+                hillshade=True, demo=False, dem_unit='m')
 ALLOWED = set(PATHS) | set(DEFAULTS) | {'output_dir', 'national_extent', 'globe_center', 'dem_unit'}
 
 
 def frames(template: str) -> dict[str, tuple[float, float, float, float]]:
     if template == 'study_area':
-        return {'globe': (12, 118, 94, 72), 'national': (115, 118, 170, 72),
+        return {'globe': (12, 121, 94, 63), 'national': (115, 121, 170, 63),
                 'detail': (12, 27, 211, 81), 'legend': (232, 27, 53, 81)}
     if template == 'watershed':
-        return {'detail': (12, 35, 195, 155), 'basins': (218, 119, 67, 71),
+        return {'detail': (12, 35, 195, 145), 'basins': (218, 119, 67, 61),
                 'legend': (218, 35, 67, 75)}
     raise ValueError('template must be study_area or watershed')
 
@@ -54,6 +54,8 @@ def normalize(data: dict, base: Path) -> dict:
     if not data.get('boundary') or not data.get('output_dir'):
         raise ValueError('boundary and output_dir are required')
     cfg = {**DEFAULTS, **data}
+    if cfg['dem_unit'] != 'm':
+        raise ValueError('dem_unit must be m; convert non-metre elevation before mapping')
     frames(cfg['template'])
     _positive(cfg['dpi'], 'dpi', integer=True)
     if not 72 <= cfg['dpi'] <= 1200:

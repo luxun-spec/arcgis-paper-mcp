@@ -5,6 +5,51 @@ from types import SimpleNamespace as NS
 
 
 class BackendTests(unittest.TestCase):
+    def test_scale_units_use_native_unit_identifier(self):
+        import json
+        from arcgis_paper_mcp.backend import configure_scale
+        cim = NS(labelSymbol=NS(symbol=NS()),unitLabelSymbol=NS(symbol=NS()),numberFormat=NS())
+        bar = NS(getDefinition=lambda _:cim,setDefinition=lambda value:None)
+        configure_scale(bar,NS(camera=NS(scale=2_000_000)))
+        self.assertEqual(cim.units,{'uwkid':9036})
+        self.assertGreater(cim.division,0)
+        self.assertLess(cim.division*cim.divisions,100)
+
+    def test_named_user_license_does_not_use_concurrent_checkout(self):
+        from arcgis_paper_mcp.backend import spatial_license
+        api = NS(GetInstallInfo=lambda:{'LicenseType':'NamedUser'},
+                 CheckExtension=lambda _:'Available',
+                 CheckOutExtension=lambda _:self.fail('not a concurrent license'),
+                 CheckInExtension=lambda _:self.fail('not a concurrent license'))
+        with spatial_license(api):
+            pass
+
+    def test_concurrent_license_is_returned_after_failure(self):
+        from arcgis_paper_mcp.backend import spatial_license
+        calls = []
+        api = NS(GetInstallInfo=lambda:{'LicenseType':'ConcurrentUse'},
+                 CheckExtension=lambda _:'Available',
+                 CheckOutExtension=lambda _:calls.append('out') or 'CheckedOut',
+                 CheckInExtension=lambda _:calls.append('in'))
+        with self.assertRaises(RuntimeError):
+            with spatial_license(api):
+                raise RuntimeError('tool failed')
+        self.assertEqual(calls,['out','in'])
+
+    def test_existing_raster_statistics_are_reused(self):
+        from arcgis_paper_mcp.backend import ensure_statistics
+        api = NS(Raster=lambda _:NS(minimum=0,maximum=2000),
+                 management=NS(CalculateStatistics=lambda _:self.fail('unnecessary raster scan')))
+        ensure_statistics(api,'dem.tif')
+
+    def test_output_claim_is_exclusive_and_does_not_overwrite(self):
+        from arcgis_paper_mcp.backend import claim_output
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)/'new'
+            claim_output(out)
+            with self.assertRaises(FileExistsError):
+                claim_output(out)
+
     def test_polygon_styling_uses_geometry_not_unsupported_symbol_type(self):
         from arcgis_paper_mcp.backend import _vector
         symbol = NS()

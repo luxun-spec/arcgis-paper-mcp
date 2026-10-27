@@ -32,13 +32,13 @@ def validate_map_config(config_path: str) -> dict:
 @mcp.tool()
 async def ping_arcgis() -> dict:
     """Check ArcGIS version, license and bridge connectivity. Requires a running bridge or configured headless Python."""
-    return await asyncio.to_thread(call,'ping',{},30)
+    return await asyncio.to_thread(call,'ping',{},120)
 
 
 @mcp.tool()
 async def inspect_dataset(path: str) -> dict:
     """Inspect actual CRS, geometry, extent, fields and raster cell size in ArcGIS."""
-    return await asyncio.to_thread(call,'inspect_data',{'path':str(Path(path).expanduser().resolve())},60)
+    return await asyncio.to_thread(call,'inspect_data',{'path':str(Path(path).expanduser().resolve())},120)
 
 
 @mcp.tool()

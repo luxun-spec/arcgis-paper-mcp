@@ -10,7 +10,7 @@
 | `template` | `study_area` | 另一种为 `watershed` |
 | `world` / `country` | 路径 | 全球陆地/国家范围面，构成两级定位；不自动下载 |
 | `dem` | 路径 | DEM 栅格；颜色分级为自动 6 级，具体高程范围来自真实数据 |
-| `dem_unit` | `m` | DEM 垂直单位；地形阴影目前只支持米 |
+| `dem_unit` | `m` | DEM 垂直单位；所有高程图只接受米，其他单位须预先转换，即使关闭阴影也一样 |
 | `rivers` / `basins` / `admin` / `sites` | 路径 | 河流线、流域面、行政区面、采样点 |
 | `river_order_field` | 空字符串 | 配置后以唯一值分级河流线宽与色彩；可读取实际数据字段 |
 | `site_label_field` | 空字符串 | 采样点标签字段，字段存在性会检查 |

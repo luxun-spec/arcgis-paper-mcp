@@ -1,10 +1,24 @@
 # 验证记录
 
-本记录将随最终测试更新。机器安装版本为 ArcGIS Pro 3.6；本机沙箱中 ArcPy 初始化直接以退出码 1 结束，无 Python 异常堆栈，尚未完成真实 ArcGIS 图形导出验收。初次 Esri 用户配置目录访问被拒绝，允许后仍复现退出；未推定为代码或授权的具体故障原因。
+验证日期：2026-10-27。环境：Windows、ArcGIS Pro 3.6 / Advanced、Python 3.13.7、MCP SDK 1.30.0。
 
-- 纯 Python 测试：配置、路径、投影前置条件、面积换算、队列过期、操作白名单和任务 ID 路径约束。
-- MCP：真实 stdio 客户端完成初始化、工具枚举、模板调用与提示词枚举。
-- ArcPy 后端：代码与输入前置条件已实现；原生布局、样式、地形和水文分析的运行结果需在正常授权的 Pro 会话中继续验收。
-- CI 不具有 ArcGIS 授权，不能验证 ArcPy 执行。
+| 验证项 | 实际结果 |
+| --- | --- |
+| 自动化测试 | 23 项：22 通过，1 项需 ArcGIS 的测试在普通环境中跳过 |
+| ArcGIS 专用投影测试 | 在 Pro Python 中单独执行，全球正射定位中心坐标投影到原点，1 项通过 |
+| MCP stdio 协议 | 初始化、工具枚举、模板调用、提示词枚举通过 |
+| MCP → 独立 ArcGIS Python | 实际调用 ping_arcgis 和 inspect_dataset 均成功；检查到分级河流 2414 条及 grid_code 字段 |
+| study_area 模板 | 原生 APRX、300 dpi PNG、PDF、SVG 均生成；manifest warnings=[] |
+| watershed 模板 | 原生 APRX、300 dpi PNG、PDF、SVG 均生成；manifest warnings=[] |
+| APRX 可编辑布局 | 保存后重新打开 APRX，确认生成的 Layout 可读取；不是仅检查文件存在 |
+| 图像检查 | 查看两张实际 ArcGIS 导出的 PNG；检查标题、图框、图例、经纬网、比例尺与合成数据声明 |
+| 水文分析 | Fill → D8 → FlowAccumulation → Strahler → StreamToFeature → Basin → RasterToPolygon 完整返回，退出码 0 |
+| 水文阈值 | 500×500 米像元，20 km² / 0.25 km² = 80 个上游像元 |
 
-若文档附带布局预览，其作用为排版示意；只有实际 ArcGIS 导出并核验后的图像才能标为后端验收成果。
+首轮测试发现并修正：正射投影参数名、CIM 比例尺单位字典、图例需通过 CIM 设置的属性、本地化经纬网样式名称、删除再新建本地化项目项导致的 URI 冲突、子进程继承 MCP 标准输入引起的超时、非米高程的误标，以及不应对非 Concurrent Use 授权调用的许可归还。
+
+当前策略保留种子工程原有项目项，并新建唯一名称的论文布局；不会编辑用户原始 APRX。测试前的沙箱限制已解除。当地 Pro 安装仍输出缺少 936.txt 码页表的原生日志，但最终两套制图和水文任务成功；这类安装日志不等同于 manifest 中的布局缺项警告。
+
+已验证的连接方式为独立 ArcGIS Python。Pro Python 窗口快照桥接器已实现，但本次未在打开的 Pro GUI 会话中验收。其他 Pro 版本、中文标签、超大 DEM 和海量图例类别需在目标环境进一步验证。CI 没有 ArcGIS 授权，只运行纯 Python/MCP 测试。
+
+预览图的研究区、DEM、河流、分区和采样点为合成数据，非真实观测或真实流域分析结果；全球/国家参考边界取自 [Natural Earth 1:110m](https://www.naturalearthdata.com/downloads/110m-cultural-vectors/)，用于演示定位，不作为权威研究边界。水文流程另以合成 DEM 实际计算，和示意河流/分区分开测试。

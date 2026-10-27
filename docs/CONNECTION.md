@@ -40,3 +40,5 @@ MCP 客户端配置的 `env` 同步设置：
 | Pro 工作线程报错 | 关闭桥接器，使用独立 Python 模式；保留错误信息以便排查 |
 
 执行慢时增大 `PAPER_MCP_TIMEOUT`，最大 86400 秒；不建议把高分辨率大区域 DEM 直接用于首轮调试。先小范围验证数据、图框、投影和图例。
+
+只有明确的 Concurrent Use 许可才手动借出/归还 Spatial Analyst；Named User、Single Use 及未报告许可类型的现代 Pro 交由工具自身检查授权。旧版并发许可环境未报告类型时，可显式设置 `PAPER_MCP_CONCURRENT_USE=1`。不会跳过 Spatial Analyst 的可用性检查。
