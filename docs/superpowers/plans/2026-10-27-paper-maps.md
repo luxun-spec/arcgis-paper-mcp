@@ -12,18 +12,18 @@ Unknown CRS, relative paths, non-metre hydrology inputs, expired jobs and overwr
 
 ## Task 1 — Validated jobs and transport
 Files: src/arcgis_paper_mcp/{config,transport,cli,server}.py, tests/test_core.py, pyproject.toml.
-- [ ] Write and run failing tests for JSON normalization, layout positions, invalid values, queue expiry and allowlisted dispatch.
-- [ ] Implement configuration, template geometry, atomic transport and MCP operations.
-- [ ] Run unit tests and real stdio MCP smoke test.
+- [x] Write and run failing tests for JSON normalization, layout positions, invalid values, queue expiry and allowlisted dispatch.
+- [x] Implement configuration, template geometry, atomic transport and MCP operations.
+- [x] Run unit tests and real stdio MCP smoke test.
 
 ## Task 2 — Native ArcGIS cartography and analysis
 Files: src/arcgis_paper_mcp/{backend,bridge,demo}.py, tests/test_backend.py.
-- [ ] Write failing tests for ArcPy preflight and dispatch contract using minimal dependency fakes where ArcPy is unavailable.
-- [ ] Implement Pro bridge main-thread timer, headless runner, two map templates, style/CRS checks, native map surrounds, export manifests and Spatial Analyst hydrology.
-- [ ] Generate synthetic data and test both templates with installed ArcGIS Python; inspect PNGs and fix observed issues.
+- [x] Write failing tests for ArcPy preflight and dispatch contract using minimal dependency fakes where ArcPy is unavailable.
+- [x] Implement Pro bridge main-thread timer, headless runner, two map templates, style/CRS checks, native map surrounds, export manifests and Spatial Analyst hydrology.
+- [x] Generate synthetic data and test both templates with installed ArcGIS Python; inspect PNGs and fix observed issues.
 
 ## Task 3 — Portable release
 Files: README.md, docs/, examples/, .github/workflows/tests.yml, LICENSE.
-- [ ] Document installation, bridge lifecycle, client configuration, data provenance and verified limitations.
-- [ ] Verify install, CLI, tests, protocol, archive and source exclusions.
-- [ ] Initialize dedicated git repository, commit and create/push GitHub repository; verify remote contents and report live URL.
+- [x] Document installation, bridge lifecycle, client configuration, data provenance and verified limitations.
+- [x] Verify install, CLI, tests, protocol, archive and source exclusions.
+- [x] Initialize dedicated git repository, commit and create/push GitHub repository; verify remote contents and report live URL.
