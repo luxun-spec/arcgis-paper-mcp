@@ -6,24 +6,9 @@
 
 ![v0.3 真实地形示例：按区域形状调整布局](docs/previews/nepal-v03.png)
 
-**v0.2 新增在线数据流程**：AI 从需求中提取研究区，调用 `search_online_regions` 查找边界，再调用 `create_online_research_map` 自动获取真实高程和定位矢量，在 ArcGIS Pro 中处理和制图。新增紧凑 `journal` 论文版式。使用范围、缺项处理与来源约束见 [联网制图说明](docs/ONLINE_WORKFLOW.md)。目前不支持任意专题、指定年份影像或土地利用的一键下载。
+当前版本 **v0.3.0**。支持联网搜索研究区边界、获取公开高程与定位矢量，在 ArcGIS Pro 自动处理并输出可编辑 APRX、PNG、PDF、SVG。详见 [联网制图说明](docs/ONLINE_WORKFLOW.md)。
 
-![在线获取真实边界与高程后，由 ArcGIS Pro 导出的 journal 模板](docs/previews/online-nepal.png)
-
-面向 GIS、地理学、生态学、水文学等科研工作。提供两套布局：
-
-| 模板 | 内容 |
-| --- | --- |
-| `study_area` | 全球正射定位图＋全国/区域位置图＋研究区地形主图＋独立图例栏 |
-| `watershed` | 地形与分级水系主图＋流域分区插图＋独立图例栏 |
-
-支持 DEM 分层设色、地形阴影、边界、行政区、河流分级、采样点及标签；原生经纬网、指北针和动态比例尺；输出 **APRX、PNG、PDF、SVG 和来源/参数清单**。图层和布局可在 ArcGIS Pro 中继续编辑。
-
-> **v0.1 已在 ArcGIS Pro 3.6 实际导出两套模板，并验证独立 ArcGIS Python 的 MCP 连接和水文流程。** 详见 [验证记录](docs/VALIDATION.md)。Pro GUI 快照桥接模式尚待界面验收。合成示例不能作为科研数据。
-
-![ArcGIS 实际导出的三级定位模板，研究图层为合成数据](docs/previews/study_area.png)
-
-![ArcGIS 实际导出的流域模板，研究图层为合成数据](docs/previews/watershed.png)
+提供 journal 自适应布局、三级定位与流域专题模板；可以按实际制图需求选择，并调整地形风格、晕渲强度和网格模式。[验证记录](docs/VALIDATION.md)注明了已验收功能及限制。
 
 ## 环境
 
@@ -151,3 +136,11 @@ CI 检查纯 Python 逻辑与真实 stdio MCP 协议；GitHub 托管运行器没
 技术依据：[Esri ArcGISProject API](https://pro.arcgis.com/en/pro-app/latest/arcpy/mapping/arcgisproject-class.htm)、[MapFrame API](https://pro.arcgis.com/en/pro-app/latest/arcpy/mapping/mapframe-class.htm)、[官方 MCP Python SDK v1](https://github.com/modelcontextprotocol/python-sdk/tree/v1.x)。参考图仅用于需求沟通，未随仓库再分发。
 
 MIT License。ArcGIS、地图数据和字体各自遵循原授权。
+
+## 自愿支持
+
+如果这个项目对你有帮助，欢迎点个 Star，或者自愿支持一下开发维护。完全自愿，不影响项目的免费使用和功能。
+
+<img src="docs/assets/support-qr.png" alt="自愿支持收款码" width="240" />
+
+这里只提供收款码，不提供个人微信号或添加好友入口。
