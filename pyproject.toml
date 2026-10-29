@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "arcgis-paper-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "Editable scientific study-area and watershed maps through ArcGIS Pro and MCP"
 readme = "README.md"
 requires-python = ">=3.11"

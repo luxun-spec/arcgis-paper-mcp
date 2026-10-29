@@ -2,6 +2,10 @@
 
 **用自然语言驱动 ArcGIS Pro，制作可编辑的论文研究区概况图。**
 
+**v0.2 新增在线数据流程**：AI 从需求中提取研究区，调用 `search_online_regions` 查找边界，再调用 `create_online_research_map` 自动获取真实高程和定位矢量，在 ArcGIS Pro 中处理和制图。新增紧凑 `journal` 论文版式。使用范围、缺项处理与来源约束见 [联网制图说明](docs/ONLINE_WORKFLOW.md)。目前不支持任意专题、指定年份影像或土地利用的一键下载。
+
+![在线获取真实边界与高程后，由 ArcGIS Pro 导出的 journal 模板](docs/previews/online-nepal.png)
+
 面向 GIS、地理学、生态学、水文学等科研工作。提供两套布局：
 
 | 模板 | 内容 |

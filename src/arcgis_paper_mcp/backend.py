@@ -361,7 +361,7 @@ class Engine:
         lon,lat = cfg.get('globe_center',[(geo.XMin+geo.XMax)/2,(geo.YMin+geo.YMax)/2])
         maps = {'detail':detail}
         bounds = {'detail':boundary}
-        if cfg['template'] == 'study_area':
+        if cfg['template'] in ('study_area','journal'):
             globe = newmap('Global locator',_orthographic(a,lon,lat))
             # An editable circular ocean backplate makes the locator read as a globe.
             disc = a.Polygon(a.Array([a.Point(6378137*math.cos(i*math.pi/180),
@@ -378,7 +378,9 @@ class Engine:
                     if m == national:
                         bounds['national'] = country_layer
                 bounds['globe' if m == globe else 'locator_area'] = _vector(m,cfg['boundary'],label('Study area','研究区'),color=[178,70,38,100],width=.7,fill=[233,166,82,100])
-            maps.update(globe=globe,national=national)
+            maps.update(national=national)
+            if cfg['template'] == 'study_area':
+                maps['globe'] = globe
             if not cfg.get('world'):
                 warnings.append('No world polygons supplied: globe locator displays study boundary only')
         else:
@@ -422,6 +424,9 @@ class Engine:
                         'national':label('(b) Regional context','(b) 区域位置'),
                         'detail':label('(c) Terrain and sampling network','(c) 地形与采样分布') if cfg['template']=='study_area' else label('(a) River network and terrain','(a) 分级水系与地形'),
                         'basins':label('(b) Basin subdivisions','(b) 流域分区')}
+            if cfg['template']=='journal':
+                captions['detail']=label('(b) Elevation and terrain','(b) 高程与地形')
+                captions['national']=label('(a) Location','(a) 地理位置')
             text(x,y+h+6,captions[key],9)
 
         main = elements['detail']
@@ -501,6 +506,31 @@ class Engine:
                         synthetic=cfg['demo'])
         atomic_json(out/'manifest.json',manifest)
         return manifest
+
+    def create_online_map(self, region, output_dir, project_path=None, zoom=9, osm_id=None, request=''):
+        from .online import prepare_online
+        root=Path(output_dir).expanduser().resolve()
+        if self.project is None and not project_path:
+            raise ValueError('Headless mode requires an existing project_path APRX seed')
+        claim_output(root)
+        prepared=prepare_online(self.api,region,root/'data',zoom,osm_id)
+        w,s,e,n=prepared['provenance']['region']['bbox']
+        dx=max(e-w,1);dy=max(n-s,1)
+        cfg=dict(template='journal',boundary=prepared['boundary'],dem=prepared['dem'],world=prepared['world'],
+                 country=prepared['boundary'],detail_crs=prepared['detail_crs'],national_crs=3857,
+                 national_extent=[max(-179,w-dx*2),max(-80,s-dy*2),min(179,e+dx*2),min(80,n+dy*2)],
+                 title=region+' — study area',output_dir=str(root/'map'),
+                 source_notes='Elevation: Mapzen Terrain Tiles (multi-source); boundary: '+prepared['provenance']['region']['license']+'; locator: Natural Earth.',
+                 formats=['PNG','PDF','SVG'])
+        if project_path: cfg['project']=str(Path(project_path).resolve())
+        result=self.render_map(cfg)
+        result['online_data_sources']=str(root/'data/data_sources.json')
+        result['original_request']=request
+        result['coverage']={'downloaded':['community boundary','multi-source elevation','overview country polygons'],
+                            'not_provided':['year-specific imagery','land cover','observed sampling sites','river vectors'],
+                            'note':'Host must compare the original request with this coverage; missing requested layers are incomplete work.'}
+        atomic_json(root/'result.json',result)
+        return result
 
     def derive_hydrology(self, config):
         cfg = hydrology_config(config,Path.cwd())

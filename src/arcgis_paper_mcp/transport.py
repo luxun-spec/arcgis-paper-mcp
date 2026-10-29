@@ -9,7 +9,7 @@ import time
 import uuid
 from pathlib import Path
 
-OPERATIONS = frozenset({'ping', 'inspect_data', 'render_map', 'derive_hydrology'})
+OPERATIONS = frozenset({'ping', 'inspect_data', 'render_map', 'derive_hydrology','create_online_map'})
 
 
 def atomic_json(path: Path, value: dict):

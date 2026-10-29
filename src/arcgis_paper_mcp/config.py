@@ -15,13 +15,16 @@ ALLOWED = set(PATHS) | set(DEFAULTS) | {'output_dir', 'national_extent', 'globe_
 
 
 def frames(template: str) -> dict[str, tuple[float, float, float, float]]:
+    if template == 'journal':
+        return {'national': (12, 108, 69, 65), 'detail': (94, 35, 190, 138),
+                'legend': (12, 35, 69, 61)}
     if template == 'study_area':
         return {'globe': (12, 121, 94, 63), 'national': (115, 121, 170, 63),
                 'detail': (12, 27, 211, 81), 'legend': (232, 27, 53, 81)}
     if template == 'watershed':
         return {'detail': (12, 35, 195, 145), 'basins': (218, 119, 67, 61),
                 'legend': (218, 35, 67, 75)}
-    raise ValueError('template must be study_area or watershed')
+    raise ValueError('template must be study_area, watershed or journal')
 
 
 def _path(value: str, base: Path) -> str:

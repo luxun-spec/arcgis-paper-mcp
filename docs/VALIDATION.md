@@ -1,5 +1,14 @@
 # 验证记录
 
+## 2026-10-29 v0.2 增量验证
+
+- 28 项自动化测试：27 通过、1 项原生环境测试跳过，包括真实 MCP 工具枚举、新 journal 图框和联网输入校验。
+- 实际执行 `create_online_map(region='Nepal', zoom=7)`：联网检索 OSM 面边界、下载与解码真实 Terrarium 高程瓦片、下载 Natural Earth 定位矢量，完成裁剪、投影和 journal 布局，导出 APRX/PNG/PDF/SVG，退出码 0，warnings=[]，synthetic=false。
+- 保存了 `data_sources.json`、瓦片哈希、许可说明及 `coverage` 缺项清单。该案例测试的是多源高程概况图，不是30米原始DEM精度证明，不含指定年份影像或土地利用。
+- 本次测试直接通过 ArcGIS Python 后端执行；新联网 MCP 工具已通过协议枚举，但未将网络下载流程再通过真实 MCP 客户端重复执行。
+
+以下为 v0.1 历史记录。
+
 验证日期：2026-10-27。环境：Windows、ArcGIS Pro 3.6 / Advanced、Python 3.13.7、MCP SDK 1.30.0。
 
 | 验证项 | 实际结果 |

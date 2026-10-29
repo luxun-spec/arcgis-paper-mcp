@@ -36,7 +36,7 @@ class ConfigTests(unittest.TestCase):
 
     def test_templates_fit_page_and_do_not_overlap(self):
         from arcgis_paper_mcp.config import frames
-        for template in ('study_area', 'watershed'):
+        for template in ('study_area', 'watershed', 'journal'):
             rects = list(frames(template).values())
             for x, y, w, h in rects:
                 self.assertTrue(0 <= x < x+w <= 297)

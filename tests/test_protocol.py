@@ -16,7 +16,7 @@ class ProtocolTests(unittest.TestCase):
                     await session.initialize()
                     tools = await session.list_tools()
                     names = {tool.name for tool in tools.tools}
-                    self.assertEqual(names,{'list_templates','validate_map_config','ping_arcgis','inspect_dataset','create_paper_map','derive_watershed'})
+                    self.assertEqual(names,{'list_templates','validate_map_config','ping_arcgis','inspect_dataset','create_paper_map','derive_watershed', 'search_online_regions','list_online_data_sources','create_online_research_map'})
                     result = await session.call_tool('list_templates',{})
                     self.assertFalse(result.isError)
                     self.assertIn('study_area',str(result))

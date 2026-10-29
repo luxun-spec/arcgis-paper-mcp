@@ -11,11 +11,33 @@ from .transport import call
 
 mcp = FastMCP('ArcGIS Paper Maps', instructions='Create editable scientific maps. Inspect datasets and validate configuration before rendering. Never invent source boundaries or research observations. Use new output folders; report manifest warnings.')
 
+@mcp.tool()
+def search_online_regions(query: str, cache_dir: str) -> list:
+    """Search public OpenStreetMap region boundaries. Supply a place name extracted from the user's natural-language request. Return candidates, IDs, bbox, polygon and source; select ambiguous places explicitly."""
+    from .online import search_regions
+    # Keep full geometry in the local cache, not in the model's context window.
+    return [{k:v for k,v in row.items() if k!='geojson'} for row in search_regions(query,cache_dir)]
+
+@mcp.tool()
+def list_online_data_sources() -> list:
+    """List implemented online raster/vector providers, licensing, temporal and resolution limitations. This is a provider catalog, not arbitrary web search."""
+    from .online import catalog
+    return catalog()
+
+@mcp.tool()
+async def create_online_research_map(region: str, output_dir: str, project_path: str | None = None,
+                                     zoom: int = 9, osm_id: str | None = None, request: str = '') -> dict:
+    """Find and download real polygon boundary, elevation tiles and locator vectors; process and map them in ArcGIS Pro. Host extracts region and preserves original request. New output directory required. No dated imagery/landcover download yet; compare returned coverage to user's requirements. Headless mode requires project_path. Tile budget 64; ambiguous regions require selected osm_id."""
+    return await asyncio.to_thread(call,'create_online_map',dict(region=region,output_dir=output_dir,
+                                   project_path=project_path,zoom=zoom,osm_id=osm_id,request=request))
+
 
 @mcp.tool()
 def list_templates() -> dict:
     """List the two native ArcGIS layout templates and their data requirements."""
-    return {'study_area':{'description':'Global locator + national locator + detailed terrain map',
+    return {'journal':{'description':'Compact journal layout: small regional locator, dominant terrain map, separate legend',
+                       'required':['boundary','output_dir'],'frames_mm':frames('journal')},
+            'study_area':{'description':'Global locator + national locator + detailed terrain map',
                           'required':['boundary','output_dir'],'recommended':['world','country','dem','rivers','sites'],
                           'frames_mm':frames('study_area')},
             'watershed':{'description':'River network and terrain + basin subdivisions inset',
