@@ -106,14 +106,14 @@ def spatial_license(api):
             api.CheckInExtension('Spatial')
 
 
-def refine_grid(frame):
+def refine_grid(frame,mode='full'):
     cim = frame.getDefinition('V3')
     for grid in cim.grids:
         for line in grid.gridLines:
             if line.elementType == 'Line' and line.symbol:
                 for stroke in line.symbol.symbol.symbolLayers:
                     stroke.width = .2
-                    stroke.color.values = [140,140,140,45]
+                    stroke.color.values = [140,140,140,45 if mode=='full' else 0]
             if line.elementType == 'Label':
                 for tick in (line.fromTick,line.toTick):
                     endpoint = getattr(tick,'gridEndpoint',None)
@@ -177,19 +177,29 @@ def _unique(layer, field, palette, widths=None):
     layer.symbology = sym
 
 
-def _raster_colors(layer):
+def _raster_colors(layer,palette='natural'):
     sym = layer.symbology
     sym.updateColorizer('RasterClassifyColorizer')
     sym.colorizer.breakCount = 6
     colors = [[24,104,75,100],[75,151,91,100],[151,191,114,100],
               [221,226,158,100],[239,225,182,100],[193,169,140,100]]
+    if palette=='natural':
+        colors=[[111,151,129,100],[155,178,143,100],[193,200,163,100],[219,210,180,100],[220,215,201,100],[245,244,239,100]]
+    elif palette=='earth':
+        colors=[[157,166,136,100],[183,188,151,100],[208,202,164,100],[216,194,157,100],[195,169,143,100],[239,231,215,100]]
+    elif palette=='gray':
+        colors=[[230,232,231,100],[212,216,214,100],[191,197,194,100],[164,174,169,100],[135,149,141,100],[105,124,114,100]]
     for brk,color in zip(sym.colorizer.classBreaks,colors):
         brk.color = {'RGB':color}
         brk.label = f'≤ {brk.upperBound:,.0f}'
     layer.symbology = sym
 
 
-def _hillshade(api, source, out, warnings):
+def mercator_ground_factor(latitude):
+    return max(.05,math.cos(math.radians(latitude)))
+
+
+def _hillshade(api, source, out, warnings,strength=.35):
     """Display-only relief: bounded NumPy computation, no analyst extension."""
     import numpy as np
     d = api.Describe(source)
@@ -211,13 +221,23 @@ def _hillshade(api, source, out, warnings):
         warnings.append('Relief uses approximate degree-to-metre spacing at DEM central latitude; display only')
     else:
         factor = getattr(d.spatialReference,'metersPerUnit',1)
+        if d.spatialReference.factoryCode in (3857,102100,102113):
+            geographic=d.extent.polygon.projectAs(api.SpatialReference(4326)).extent
+            factor*=mercator_ground_factor((geographic.YMin+geographic.YMax)/2)
         dx *= factor
         dy *= factor
     gy,gx = np.gradient(data,dy,dx)
     # Rows run north-to-south. Illumination from NW at 45 degree altitude.
     nx,ny,nz = -gx,gy,np.ones_like(gx)
-    shade = (nx*(-0.5)+ny*0.5+nz*(2**-0.5))/np.sqrt(nx*nx+ny*ny+1)
-    shade = np.clip(70+185*np.maximum(shade,0),0,255).astype('uint8')
+    norm=np.sqrt(nx*nx+ny*ny+1)
+    lights=[]
+    for azimuth in (225,270,315,360):
+        az=math.radians(azimuth)
+        lights.append(np.maximum((nx*math.sin(az)*2**-.5+ny*math.cos(az)*2**-.5+nz*2**-.5)/norm,0))
+    # Custom multi-azimuth display relief, retaining NW dominance; not a
+    # numerical reimplementation of Esri's six-direction raster function.
+    diffuse=.5*lights[2]+.5*np.mean(lights,axis=0)
+    shade=np.clip(255*(1-strength+strength*diffuse),1,255).astype('uint8')
     shade[invalid] = 0
     result = str(out/'hillshade.tif')
     api.NumPyArrayToRaster(shade,api.Point(raster.extent.XMin,raster.extent.YMin),
@@ -333,12 +353,12 @@ class Engine:
             if cfg['hillshade']:
                 if cfg.get('dem_unit','m') != 'm':
                     raise ValueError('Relief currently requires DEM elevation in metres (dem_unit=m)')
-                relief = detail.addDataFromPath(_hillshade(a,clip,out,warnings))
+                relief = detail.addDataFromPath(_hillshade(a,clip,out,warnings,cfg['relief_strength']))
                 relief.name = label('Shaded relief','地形阴影')
             dem = detail.addDataFromPath(clip)
             dem.name = label('Elevation (m)','高程（m）')
-            _raster_colors(dem)
-            dem.transparency = 23 if cfg['hillshade'] else 0
+            _raster_colors(dem,cfg['terrain_palette'])
+            dem.transparency = 30 if cfg['hillshade'] else 0
         else:
             warnings.append('No DEM supplied: terrain and hillshade omitted')
         if cfg.get('admin'):
@@ -347,7 +367,7 @@ class Engine:
             rivers = _vector(detail,cfg['rivers'],label('Rivers','河流'),color=[23,145,181,100],width=.85,geometry_type='Polyline')
             if cfg['river_order_field']:
                 _unique(rivers,cfg['river_order_field'],[[172,209,218,100],[100,173,192,100],[42,129,163,100],[18,75,113,100]], [.3,.55,.9,1.25,1.6])
-        boundary = _vector(detail,cfg['boundary'],label('Study area','研究区边界'),color=[35,50,45,100],width=1)
+        boundary = _vector(detail,cfg['boundary'],label('Study area','研究区边界'),color=[65,76,70,100],width=.55)
         if cfg.get('sites'):
             sites = _vector(detail,cfg['sites'],label('Sampling sites','采样点'),color=[183,61,43,100],geometry_type='Point')
             if cfg['site_label_field']:
@@ -396,7 +416,8 @@ class Engine:
                 warnings.append('No basins supplied: subdivision inset contains only study boundary')
             maps['basins'] = basin_map
 
-        rects = frames(cfg['template'])
+        projected_extent=geometry.projectAs(detail_sr).extent
+        rects = frames(cfg['template'],aspect=projected_extent.width/max(projected_extent.height,1))
         elements = {}
         for key,m in maps.items():
             x,y,w,h = rects[key]
@@ -410,13 +431,13 @@ class Engine:
             else:
                 lyr = bounds.get(key) or bounds.get('locator_area')
                 fit_frame(frame,frame.getLayerExtent(lyr,False,True),cfg['padding'])
-            if cfg['graticule'] and key != 'globe':
+            if cfg['graticule'] and cfg['grid_mode']!='off' and key != 'globe':
                 try:
                     grids = [s for s in proj.listStyleItems('ArcGIS 2D','GRID') if 'graticule' in s.name.lower() or '经纬' in s.name]
                     if not grids:
                         raise RuntimeError('No graticule style in ArcGIS 2D')
                     frame.addGrid(grids[0])
-                    refine_grid(frame)
+                    refine_grid(frame,cfg['grid_mode'])
                 except Exception as exc:
                     warnings.append(f'{key}: graticule unavailable: {exc}')
             elements[key] = frame
@@ -439,7 +460,7 @@ class Engine:
                     raise RuntimeError(f'Missing {category} style')
                 elem = layout.createMapSurroundElement(a.Point(*pos),category,main,style,name)
                 if category == 'NORTH_ARROW':
-                    elem.elementHeight = 10
+                    elem.elementHeight = 7
                 else:
                     elem.elementWidth = 42
                     configure_scale(elem,main)
@@ -449,6 +470,7 @@ class Engine:
         try:
             legend = layout.createMapSurroundElement(_rect(a,lx,ly+8,lw,lh-8),'LEGEND',main,_style(proj,'LEGEND'),'Legend')
             legend.title = label('Legend','图例')
+            if lw>100: legend.columnCount=3
             legend.syncNewLayer = False
             legend.fittingStrategy = 'AdjustFontSize'
             for item in list(legend.items):
@@ -507,9 +529,12 @@ class Engine:
         atomic_json(out/'manifest.json',manifest)
         return manifest
 
-    def create_online_map(self, region, output_dir, project_path=None, zoom=9, osm_id=None, request=''):
+    def create_online_map(self, region, output_dir, project_path=None, zoom=9, osm_id=None, request='',terrain_palette='natural',relief_strength=.35,grid_mode='labels'):
         from .online import prepare_online
         root=Path(output_dir).expanduser().resolve()
+        # Validate cartography before reserving a directory or downloading data.
+        normalize(dict(boundary='validation-only.shp',output_dir=str(root),terrain_palette=terrain_palette,
+                       relief_strength=relief_strength,grid_mode=grid_mode),Path.cwd())
         if self.project is None and not project_path:
             raise ValueError('Headless mode requires an existing project_path APRX seed')
         claim_output(root)
@@ -521,7 +546,7 @@ class Engine:
                  national_extent=[max(-179,w-dx*2),max(-80,s-dy*2),min(179,e+dx*2),min(80,n+dy*2)],
                  title=region+' — study area',output_dir=str(root/'map'),
                  source_notes='Elevation: Mapzen Terrain Tiles (multi-source); boundary: '+prepared['provenance']['region']['license']+'; locator: Natural Earth.',
-                 formats=['PNG','PDF','SVG'])
+                 formats=['PNG','PDF','SVG'],terrain_palette=terrain_palette,relief_strength=relief_strength,grid_mode=grid_mode)
         if project_path: cfg['project']=str(Path(project_path).resolve())
         result=self.render_map(cfg)
         result['online_data_sources']=str(root/'data/data_sources.json')

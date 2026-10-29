@@ -1,5 +1,7 @@
 # 配置与制图约定
 
+v0.3 新增 `terrain_palette`（natural/earth/gray，默认natural）、`relief_strength`（0—1，默认.35）、`grid_mode`（labels/full/off，默认labels）。新增 `journal` 模板随研究区包络长宽比选择主图布局。详见 [制图说明](CARTOGRAPHY.md)。
+
 配置文件编码为 UTF-8；相对路径以配置文件目录为基准。未知字段会报错，防止拼写错误被忽略。
 
 | 字段 | 类型/默认 | 用途 |

@@ -5,6 +5,10 @@ from types import SimpleNamespace as NS
 
 
 class BackendTests(unittest.TestCase):
+    def test_mercator_relief_spacing_uses_local_ground_scale(self):
+        from arcgis_paper_mcp.backend import mercator_ground_factor
+        self.assertAlmostEqual(mercator_ground_factor(0),1)
+        self.assertAlmostEqual(mercator_ground_factor(60),.5)
     def test_scale_units_use_native_unit_identifier(self):
         import json
         from arcgis_paper_mcp.backend import configure_scale

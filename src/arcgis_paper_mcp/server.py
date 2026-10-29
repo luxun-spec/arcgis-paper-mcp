@@ -26,10 +26,12 @@ def list_online_data_sources() -> list:
 
 @mcp.tool()
 async def create_online_research_map(region: str, output_dir: str, project_path: str | None = None,
-                                     zoom: int = 9, osm_id: str | None = None, request: str = '') -> dict:
+                                     zoom: int = 9, osm_id: str | None = None, request: str = '',
+                                     terrain_palette: str = 'natural', relief_strength: float = .35, grid_mode: str = 'labels') -> dict:
     """Find and download real polygon boundary, elevation tiles and locator vectors; process and map them in ArcGIS Pro. Host extracts region and preserves original request. New output directory required. No dated imagery/landcover download yet; compare returned coverage to user's requirements. Headless mode requires project_path. Tile budget 64; ambiguous regions require selected osm_id."""
     return await asyncio.to_thread(call,'create_online_map',dict(region=region,output_dir=output_dir,
-                                   project_path=project_path,zoom=zoom,osm_id=osm_id,request=request))
+                                   project_path=project_path,zoom=zoom,osm_id=osm_id,request=request,
+                                   terrain_palette=terrain_palette,relief_strength=relief_strength,grid_mode=grid_mode))
 
 
 @mcp.tool()

@@ -9,6 +9,15 @@ from pathlib import Path
 
 
 class ConfigTests(unittest.TestCase):
+    def test_wide_regions_use_landscape_main_frame(self):
+        from arcgis_paper_mcp.config import frames
+        rect=frames('journal',aspect=2.5)['detail']
+        self.assertGreater(rect[2]/rect[3],2)
+
+    def test_cartography_options_reject_invalid_inputs(self):
+        for kw in ({'terrain_palette':'rainbow'},{'relief_strength':2},{'grid_mode':'bad'}):
+            with self.assertRaises(ValueError): self.config(**kw)
+
     def config(self, **kwargs):
         from arcgis_paper_mcp.config import normalize
         return normalize({'boundary': 'data/area.shp', 'output_dir': 'result', **kwargs}, Path.cwd())

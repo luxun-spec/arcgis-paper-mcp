@@ -10,12 +10,14 @@ DEFAULTS = dict(template='study_area', title='Study area', subtitle='', source_n
                 dpi=300, detail_crs=3857, national_crs=3857, font='Arial',
                 language='en', formats=['PNG', 'PDF'], graticule=True,
                 river_order_field='', site_label_field='', padding=1.12,
-                hillshade=True, demo=False, dem_unit='m')
+                hillshade=True, demo=False, dem_unit='m',terrain_palette='natural',relief_strength=.35,grid_mode='labels')
 ALLOWED = set(PATHS) | set(DEFAULTS) | {'output_dir', 'national_extent', 'globe_center', 'dem_unit'}
 
 
-def frames(template: str) -> dict[str, tuple[float, float, float, float]]:
+def frames(template: str, aspect: float | None = None) -> dict[str, tuple[float, float, float, float]]:
     if template == 'journal':
+        if aspect is not None and aspect>1.6:
+            return {'detail':(12,82,273,98),'national':(12,28,83,39),'legend':(110,28,175,39)}
         return {'national': (12, 108, 69, 65), 'detail': (94, 35, 190, 138),
                 'legend': (12, 35, 69, 61)}
     if template == 'study_area':
@@ -57,6 +59,10 @@ def normalize(data: dict, base: Path) -> dict:
     if not data.get('boundary') or not data.get('output_dir'):
         raise ValueError('boundary and output_dir are required')
     cfg = {**DEFAULTS, **data}
+    if cfg['terrain_palette'] not in ('natural','earth','gray'): raise ValueError('Invalid terrain_palette')
+    if cfg['grid_mode'] not in ('labels','full','off'): raise ValueError('Invalid grid_mode')
+    if isinstance(cfg['relief_strength'],bool) or not isinstance(cfg['relief_strength'],(float,int)) or not math.isfinite(cfg['relief_strength']) or not 0<=cfg['relief_strength']<=1:
+        raise ValueError('relief_strength must be between 0 and 1')
     if cfg['dem_unit'] != 'm':
         raise ValueError('dem_unit must be m; convert non-metre elevation before mapping')
     frames(cfg['template'])
