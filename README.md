@@ -1,12 +1,25 @@
 # ArcGIS Paper MCP
 
-**用自然语言驱动 ArcGIS Pro，制作可编辑的论文研究区概况图。**
+**在 ArcGIS Pro 内输入需求，获取公开数据，制作可编辑的论文研究区概况图。**
+
+**v0.3.1 新增 Pro 原生中文侧栏**：无需 Codex、外部 MCP 客户端或 Python 桥接代码。保留原有 MCP 接口供开发者使用。
+
+## 直接在 Pro 使用
+
+1. 从 [Releases](https://github.com/luxun-spec/arcgis-paper-mcp/releases) 下载 `PaperMapPro.esriAddinX`，双击安装，重启 ArcGIS Pro。本插件针对 **Pro 3.6 / .NET 8** 编译。
+2. 打开并保存一个工程，点击 **论文制图 → 需求输入**，显示 Pro 内的中文侧栏。
+3. 输入例如“帮我画一个云南省的研究区图，只用 DEM”，点击 **发送需求**。侧栏显示解析、数据获取、运行记录和成果，完成后自动把可编辑布局导入当前工程。
+4. 复杂自然语言需求在 **模型与连接设置** 配置兼容 Chat Completions JSON 模式的服务地址、模型名和 API Key。需求将发送到你配置的服务；Key 仅留在本次 Pro 会话，不写入文件、项目或日志。
+
+没有模型时使用**有限地名规则**，可识别省级地名和尼泊尔；其他地名可在“地区”栏明确填写。规则模式不具备完整自然语言理解。模型输出受严格结构校验，不能执行模型生成的代码。当前窗口支持边界、高程地形、区域定位图；土地利用、气象、指定年份影像、河流、采样点等需求会提示并停止，不会假装已完成。
+
+输出使用独立新目录，生成 APRX、PNG、PDF、SVG 和供 Pro 导入的 PAGX。当前已保存 APRX 只作为种子，未保存的修改不包含在种子中；生成后向当前工程添加新布局，是否保存当前工程由你决定。详见 [Pro 侧栏使用说明](docs/PRO_PANE.md)。
 
 **v0.3 制图改进**：journal 按区域形状选择横向主图或侧栏布局，提供 natural / earth / gray 地形风格、可调多方位晕渲与网格模式。见 [制图参数与参考资料](docs/CARTOGRAPHY.md)。
 
 ![v0.3 真实地形示例：按区域形状调整布局](docs/previews/nepal-v03.png)
 
-当前版本 **v0.3.0**。支持联网搜索研究区边界、获取公开高程与定位矢量，在 ArcGIS Pro 自动处理并输出可编辑 APRX、PNG、PDF、SVG。详见 [联网制图说明](docs/ONLINE_WORKFLOW.md)。
+当前版本 **v0.3.1**。支持联网搜索研究区边界、获取公开高程与定位矢量，在 ArcGIS Pro 自动处理并输出可编辑 APRX、PNG、PDF、SVG。详见 [联网制图说明](docs/ONLINE_WORKFLOW.md)。
 
 提供 journal 自适应布局、三级定位与流域专题模板；可以按实际制图需求选择，并调整地形风格、晕渲强度和网格模式。[验证记录](docs/VALIDATION.md)注明了已验收功能及限制。
 

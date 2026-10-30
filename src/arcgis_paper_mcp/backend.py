@@ -541,13 +541,16 @@ class Engine:
         prepared=prepare_online(self.api,region,root/'data',zoom,osm_id)
         w,s,e,n=prepared['provenance']['region']['bbox']
         dx=max(e-w,1);dy=max(n-s,1)
+        plateau=prepared['provenance']['region'].get('provider')=='geodoi_tp2021'
+        boundary_credit='Zhang et al. (2021), doi:10.3974/geodb.2021.07.10.V1' if plateau else prepared['provenance']['region']['license']
         cfg=dict(template='journal',boundary=prepared['boundary'],dem=prepared['dem'],world=prepared['world'],
                  country=prepared['boundary'],detail_crs=prepared['detail_crs'],national_crs=3857,
                  national_extent=[max(-179,w-dx*2),max(-80,s-dy*2),min(179,e+dx*2),min(80,n+dy*2)],
-                 title=region+' — study area',output_dir=str(root/'map'),
-                 source_notes='Elevation: Mapzen Terrain Tiles (multi-source); boundary: '+prepared['provenance']['region']['license']+'; locator: Natural Earth.',
+                 title=('Tibetan Plateau | Elevation and regional setting' if prepared['provenance']['region'].get('provider')=='geodoi_tp2021' else region+' — study area'),output_dir=str(root/'map'),
+                 source_notes='Elevation: Mapzen Terrain Tiles (multi-source); boundary: '+boundary_credit+'; locator: Natural Earth.',
                  formats=['PNG','PDF','SVG'],terrain_palette=terrain_palette,relief_strength=relief_strength,grid_mode=grid_mode)
         if project_path: cfg['project']=str(Path(project_path).resolve())
+        if plateau: cfg['national_extent']=[max(-179,w-12),max(-80,s-8),min(179,e+12),min(80,n+8)]
         result=self.render_map(cfg)
         result['online_data_sources']=str(root/'data/data_sources.json')
         result['original_request']=request

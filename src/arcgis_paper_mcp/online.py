@@ -23,7 +23,10 @@ def catalog():
                  limitations='Multi-source elevation mosaic, variable source resolution, not a dated 30m product'),
             dict(id='natural_earth',kind='vector',url='https://www.naturalearthdata.com/',
                  license='Public domain',supports_year_filter=False,
-                 limitations='1:110m overview only; unsuitable for detailed administrative boundary analysis')]
+                 limitations='1:110m overview only; unsuitable for detailed administrative boundary analysis'),
+            dict(id='geodoi_tp2021',kind='vector',url='https://geodoi.ac.cn/webcn/geodoi.aspx?Id=1847',
+                 license='GCdataPR: research use with citation; redistribution requires permission',supports_year_filter=False,
+                 limitations='Curated 2021 full natural Tibetan Plateau boundary across nine countries, not a China-only boundary or a DEM date')]
 
 def download(url,path,max_bytes=16_000_000):
     path=Path(path)
@@ -42,6 +45,9 @@ def search_regions(query,cache_dir):
     global _last_search
     if not isinstance(query,str) or not 1<=len(query.strip())<=200:
         raise ValueError('Supply a specific region/place name, up to 200 characters')
+    if query.strip().casefold() in ('青藏高原','tibetan plateau','qinghai-tibet plateau'):
+        from .plateau import candidate
+        return [candidate()]
     cache=Path(cache_dir)/('region-'+hashlib.sha256(query.encode()).hexdigest()+'.json')
     url='https://nominatim.openstreetmap.org/search?'+urllib.parse.urlencode(dict(q=query,format='jsonv2',polygon_geojson=1,addressdetails=1,limit=5))
     with _lock:
@@ -78,7 +84,8 @@ def search_regions(query,cache_dir):
                  geojson=r.get('geojson'),source=url,license='© OpenStreetMap contributors, ODbL') for r in rows]
 
 def choose_region(rows):
-    polygons=[r for r in rows if r.get('geojson',{}).get('type') in ('Polygon','MultiPolygon')]
+    polygons=[r for r in rows if (r.get('geojson') or {}).get('type') in ('Polygon','MultiPolygon')
+              or (r.get('provider')=='geodoi_tp2021' and r.get('osm_id')=='geodoi:tp2021')]
     if not polygons: raise ValueError('No polygon boundary found; specify a more precise administrative region or supply a boundary file')
     if len(polygons)!=1: raise ValueError('Multiple polygon boundaries found; select an osm_id from search_regions first')
     return polygons[0]
@@ -108,6 +115,9 @@ def prepare_online(api,region,workspace,zoom=9,osm_id=None):
     rows=search_regions(region,root/'cache')
     if osm_id is not None: rows=[r for r in rows if str(r['osm_id'])==str(osm_id)]
     selected=choose_region(rows)
+    if selected.get('provider')=='geodoi_tp2021':
+        from .plateau import load_boundary
+        selected=load_boundary(api,root,selected)
     plan=tile_plan(selected['bbox'],zoom)
     geo=root/'boundary.geojson'
     geo.write_text(json.dumps({'type':'FeatureCollection','features':[{'type':'Feature','properties':{'name':region},'geometry':selected['geojson']}]}),encoding='utf-8')
@@ -145,4 +155,5 @@ def prepare_online(api,region,workspace,zoom=9,osm_id=None):
     w,s,e,n=selected['bbox'];lon=(w+e)/2;lat=(s+n)/2
     zone=min(60,max(1,int((lon+180)/6)+1))
     return dict(boundary=str(boundary),dem=str(dem),world=str(world_dir/'ne_110m_admin_0_countries.shp'),
-                detail_crs=(32600 if lat>=0 else 32700)+zone,provenance=provenance)
+                detail_crs=102025 if selected.get('provider')=='geodoi_tp2021' else (32600 if lat>=0 else 32700)+zone,
+                provenance=provenance)

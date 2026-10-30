@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>PaperMapPro</AssemblyName>
+    <RootNamespace>PaperMapPro</RootNamespace>
+    <Version>0.3.1</Version>
+    <ArcGISProDir Condition="'$(ArcGISProDir)' == ''">C:\Program Files\ArcGIS\Pro</ArcGISProDir>
+    <ProBin>$(ArcGISProDir)\bin</ProBin>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="ArcGIS.Core"><HintPath>$(ProBin)\ArcGIS.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Framework"><HintPath>$(ProBin)\ArcGIS.Desktop.Framework.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Core"><HintPath>$(ProBin)\Extensions\Core\ArcGIS.Desktop.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Layouts"><HintPath>$(ProBin)\Extensions\Layout\ArcGIS.Desktop.Layouts.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Mapping"><HintPath>$(ProBin)\Extensions\Mapping\ArcGIS.Desktop.Mapping.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+  <Target Name="PackageAddIn" AfterTargets="Build">
+    <PropertyGroup><Stage>$(IntermediateOutputPath)package\</Stage><AddInFile>$(TargetDir)PaperMapPro.esriAddinX</AddInFile></PropertyGroup>
+    <RemoveDir Directories="$(Stage)" />
+    <MakeDir Directories="$(Stage)Install\python\arcgis_paper_mcp" />
+    <Copy SourceFiles="Config.daml" DestinationFolder="$(Stage)" />
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(Stage)Install" />
+    <ItemGroup><PythonFiles Include="..\..\src\arcgis_paper_mcp\*.py" /></ItemGroup>
+    <Copy SourceFiles="@(PythonFiles)" DestinationFolder="$(Stage)Install\python\arcgis_paper_mcp" />
+    <Delete Files="$(AddInFile)" />
+    <ZipDirectory SourceDirectory="$(Stage)" DestinationFile="$(AddInFile)" />
+  </Target>
+</Project>

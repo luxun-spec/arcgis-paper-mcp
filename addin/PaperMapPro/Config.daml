@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArcGIS defaultAssembly="PaperMapPro.dll" defaultNamespace="PaperMapPro" xmlns="http://schemas.esri.com/DADF/Registry">
+  <AddInInfo id="{706eba08-383e-4613-a9a6-3a445d3246bc}" version="0.3.1" desktopVersion="3.6">
+    <Name>论文制图助手</Name><Description>在 ArcGIS Pro 中输入需求，获取公开数据并生成可编辑论文地图。</Description>
+    <Author>ArcGIS Paper MCP contributors</Author><Company>ArcGIS Paper MCP</Company><Date>10/30/2026</Date><Subject>Mapping</Subject>
+  </AddInInfo>
+  <modules>
+    <insertModule id="PaperMapPro_Module" className="PaperModule" autoLoad="false" caption="论文制图助手">
+      <tabs><tab id="PaperMapPro_Tab" caption="论文制图"><group refID="PaperMapPro_Group" /></tab></tabs>
+      <groups><group id="PaperMapPro_Group" caption="论文制图助手" appearsOnAddInTab="true"><button refID="PaperMapPro_Show" size="large" /></group></groups>
+      <controls><button id="PaperMapPro_Show" caption="需求输入" className="ShowPane" loadOnClick="true" smallImage="GenericButtonBlue16" largeImage="GenericButtonBlue32"><tooltip heading="打开论文制图助手">在 Pro 内输入需求并生成论文地图。<disabledText /></tooltip></button></controls>
+      <dockPanes><dockPane id="PaperMapPro_Pane" caption="论文制图助手" className="PaperPane" dock="right" width="410"><content className="PaperPaneView" /></dockPane></dockPanes>
+    </insertModule>
+  </modules>
+</ArcGIS>

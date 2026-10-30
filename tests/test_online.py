@@ -3,6 +3,15 @@ import unittest
 from pathlib import Path
 
 class OnlineTests(unittest.TestCase):
+    def test_plateau_uses_cited_natural_region_not_administrative_substitute(self):
+        from arcgis_paper_mcp.online import search_regions, choose_region
+        rows=search_regions('青藏高原','not-created')
+        selected=choose_region(rows)
+        self.assertEqual(selected['osm_id'],'geodoi:tp2021')
+        self.assertEqual(selected['doi'],'10.3974/geodb.2021.07.10.V1')
+        self.assertIn('nine countries',selected['warning'])
+        self.assertNotIn('geojson',selected)  # Geometry only available after real download/reprojection.
+
     def test_tile_budget_rejects_huge_requests(self):
         from arcgis_paper_mcp.online import tile_plan
         with self.assertRaises(ValueError):
